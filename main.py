@@ -242,7 +242,7 @@ def settings():
 @app.route('/')
 def dashboard_default():
     """Redirect to default view."""
-    return redirect(url_for('dashboard_typed', view_slug=DEFAULT_VIEW_SLUG))
+    return redirect(DEFAULT_VIEW_SLUG)
 
 
 @app.route('/<view_slug>')
