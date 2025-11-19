@@ -1,42 +1,142 @@
-# Python
+.flaskenv
+*.db
+pyenv
+*.conf
+*.json
+certs/
+*.pem
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.env
-*.venv
+*.py[codz]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# Environments
+.env
+.envrc
+.venv
 env/
 venv/
+ENV/
+env.bak/
+venv.bak/
 
-# IDE / Editor specific
-.vscode/
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# IDE
 .idea/
-*.swp
-*.swo
-
-# Logs
-*.log
-logs/
-
-# Secrets - CRITICAL
-token.txt
-*.txt
-tickets/*
-ticket_poller.lock
-agents.txt
-requesters.txt
-
-# SSL Certificates and Keys (if self-signed or not meant for public repo)
-# If your certs are for public use and part of deployment, you might reconsider these.
-# For development or unique certs, definitely ignore.
-cert.pem
-key.pem
+.vscode/
 
 # OS generated files
 .DS_Store
 Thumbs.db
 
-# Other common files to ignore
-*.bak
-*.tmp
+# Ruff stuff:
+.ruff_cache/
 
+# PyPI configuration file
+.pypirc
+
+services.json
