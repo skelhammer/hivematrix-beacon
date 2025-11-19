@@ -1,60 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const body = document.body;
-    const sidebarToggle = document.getElementById('sidebar-toggle');
     const agentFilter = document.getElementById('agent-filter');
-
-    // --- Sidebar Logic ---
-    function applySidebarState() {
-        const isCollapsed = localStorage.getItem('sidebar_collapsed') === 'true';
-        if (isCollapsed) {
-            body.classList.add('sidebar-collapsed');
-        } else {
-            body.classList.remove('sidebar-collapsed');
-        }
-    }
-
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', () => {
-            body.classList.toggle('sidebar-collapsed');
-            localStorage.setItem('sidebar_collapsed', body.classList.contains('sidebar-collapsed'));
-        });
-    }
-
-    // --- Theme Logic ---
-    const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
-    const currentTheme = localStorage.getItem('theme');
-
-    if (currentTheme) {
-        body.classList.add(currentTheme);
-        if (currentTheme === 'dark-mode') {
-            toggleSwitch.checked = true;
-        }
-    } else {
-        // Default to light mode if no theme is set
-        body.classList.add('light-mode');
-        localStorage.setItem('theme', 'light-mode');
-        if(toggleSwitch) {
-            toggleSwitch.checked = false;
-        }
-    }
-
-    function switchTheme(e) {
-        if (e.target.checked) {
-            body.classList.remove('light-mode');
-            body.classList.add('dark-mode');
-            localStorage.setItem('theme', 'dark-mode');
-        }
-        else {
-            body.classList.remove('dark-mode');
-            body.classList.add('light-mode');
-            localStorage.setItem('theme', 'light-mode');
-        }
-    }
-
-    if (toggleSwitch) {
-        toggleSwitch.addEventListener('change', switchTheme, false);
-    }
-
 
     // --- Agent Filter Logic ---
     if (agentFilter) {
@@ -70,28 +15,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Initial State Application ---
-    applySidebarState();
-
-
-    // --- Ticket Data Fetching & Rendering Logic (from theme.js) ---
+    // --- Ticket Data Fetching & Rendering Logic ---
     function formatToLocal(utcDateStringInput, options = {}, dateOnly = false, prefix = "") {
         if (!utcDateStringInput || utcDateStringInput.trim() === 'N/A' || utcDateStringInput.trim() === '') {
             return 'N/A';
         }
         let parsableDateString = utcDateStringInput.trim().replace(' ', 'T');
         if (!parsableDateString.endsWith('Z') && !parsableDateString.match(/[+-]\d{2}:\d{2}$/)) {
-            parsableDateString += 'Z'; // Assume UTC if no timezone
+            parsableDateString += 'Z';
         }
 
         const date = new Date(parsableDateString);
         if (isNaN(date.getTime())) {
-            return utcDateStringInput; // Return original if parsing fails
+            return utcDateStringInput;
         }
 
         let Noptions = dateOnly
-        ? { year: 'numeric', month: 'short', day: 'numeric', ...options }
-        : { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, ...options };
+            ? { year: 'numeric', month: 'short', day: 'numeric', ...options }
+            : { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, ...options };
         return prefix + date.toLocaleString(undefined, Noptions);
     }
 
@@ -112,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const FRESHSERVICE_BASE_URL = window.FRESHSERVICE_BASE_URL || '';
     const AUTO_REFRESH_INTERVAL_MS = window.AUTO_REFRESH_MS || 0;
-    const CURRENT_TICKET_TYPE_SLUG = window.CURRENT_TICKET_TYPE_SLUG || 'incidents';
+    const CURRENT_TICKET_TYPE_SLUG = window.CURRENT_TICKET_TYPE_SLUG || 'helpdesk';
 
     window.currentApiData = {};
     let sortState = {
@@ -142,21 +83,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return `
         <tr>
-        <td class="item-id"><a href="${FRESHSERVICE_BASE_URL}${itemId}" target="_blank">${itemId}</a></td>
-        <td class="item-subject">
-        <a href="#" class="modal-trigger" data-item-id="${itemId}" data-section-prefix="${sectionIdPrefix}">
-        ${subjectText}
-        </a>
-        </td>
-        <td>${requesterName}</td>
-        <td>${agentName}</td>
-        <td><span class="priority-${priorityText}">${priorityText}</span></td>
-        <td class="col-action-sla">
-        <span class="sla-status-text ${slaClass}">${slaText}</span>
-        ${slaDetailHtml}
-        </td>
-        <td>${updatedFriendly}</td>
-        <td>${createdDaysOld}</td>
+            <td><a href="${FRESHSERVICE_BASE_URL}${itemId}" target="_blank">${itemId}</a></td>
+            <td>
+                <a href="#" class="modal-trigger" data-item-id="${itemId}" data-section-prefix="${sectionIdPrefix}">
+                    ${subjectText}
+                </a>
+            </td>
+            <td>${requesterName}</td>
+            <td>${agentName}</td>
+            <td><span class="priority-badge priority-badge--${priorityText.toLowerCase()}">${priorityText}</span></td>
+            <td>
+                <span class="sla-status ${slaClass}">${slaText}</span>
+                ${slaDetailHtml}
+            </td>
+            <td>${updatedFriendly}</td>
+            <td>${createdDaysOld}</td>
         </tr>`;
     }
 
@@ -197,22 +138,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const totalActiveItems = data.total_active_items;
             const totalActiveItemsCount = document.getElementById('total-active-items-count');
-            totalActiveItemsCount.textContent = totalActiveItems;
-            const sirenLeft = document.getElementById('siren-left');
-            const sirenRight = document.getElementById('siren-right');
+            if (totalActiveItemsCount) {
+                totalActiveItemsCount.textContent = totalActiveItems;
 
-            if (totalActiveItems >= 100) {
-                totalActiveItemsCount.classList.add('pulse-red');
-            } else {
-                totalActiveItemsCount.classList.remove('pulse-red');
-            }
-
-            if (totalActiveItems >= 110) {
-                sirenLeft.classList.add('active');
-                sirenRight.classList.add('active');
-            } else {
-                sirenLeft.classList.remove('active');
-                sirenRight.classList.remove('active');
+                if (totalActiveItems >= 100) {
+                    totalActiveItemsCount.classList.add('pulse-red');
+                } else {
+                    totalActiveItemsCount.classList.remove('pulse-red');
+                }
             }
 
             let s1Data = data.s1_items || [];
@@ -231,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateItemSection('s4', s4Data);
 
             updateAllSortIndicators();
-            if(data.dashboard_generated_time_iso){
+            if (data.dashboard_generated_time_iso) {
                 convertAllUTCToLocal(data.dashboard_generated_time_iso);
             }
 
@@ -280,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.sortable-header').forEach(header => {
         header.addEventListener('click', () => {
             const sortKey = header.dataset.sortKey;
-            const tableElement = header.closest('.item-table');
+            const tableElement = header.closest('.data-table');
             if (!tableElement) return;
             const tableId = tableElement.id;
             const sectionPrefix = tableId.substring(0, 2);
@@ -300,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const sortedData = sortData(dataToSort, sortKey, sortState[tableId].direction);
             updateItemSection(sectionPrefix, sortedData);
             updateSortIndicators(tableElement, sortKey, sortState[tableId].direction);
-            convertAllUTCToLocal(); // Re-run date conversion after re-render
+            convertAllUTCToLocal();
         });
     });
 
@@ -309,27 +242,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalTitle = document.getElementById('modal-title');
     const modalDetailsGrid = document.getElementById('modal-details-grid');
     const modalDescription = document.getElementById('modal-description');
-    const closeModalBtn = modal.querySelector('.modal-close-btn');
+    const closeModalBtn = modal ? modal.querySelector('.modal__close') : null;
 
     function createDetailRow(label, value) {
         return `
-        <div class="modal-detail-label">${label}</div>
-        <div class="modal-detail-value">${value || 'N/A'}</div>
+            <div class="modal__detail-row">
+                <span class="modal__detail-label">${label}</span>
+                <span class="modal__detail-value">${value || 'N/A'}</span>
+            </div>
         `;
     }
 
     function openModal(item) {
-        if (!item) return;
+        if (!item || !modal) return;
 
         modalTitle.textContent = `Ticket #${item.id}: ${item.subject}`;
 
         let detailsHtml = '';
         detailsHtml += createDetailRow('Requester', item.requester_name);
         detailsHtml += createDetailRow('Agent', item.agent_name || 'Unassigned');
-        detailsHtml += createDetailRow('Priority', `<span class="priority-${item.priority_text}">${item.priority_text}</span>`);
+        detailsHtml += createDetailRow('Priority', `<span class="priority-badge priority-badge--${(item.priority_text || '').toLowerCase()}">${item.priority_text}</span>`);
         detailsHtml += createDetailRow('Status', item.sla_text || 'N/A');
-        detailsHtml += createDetailRow('Created', `${item.created_days_old} ago (${formatToLocal(item.created_at_str)})`);
-        detailsHtml += createDetailRow('Last Updated', `${item.updated_friendly} ago (${formatToLocal(item.updated_at_str)})`);
+        detailsHtml += createDetailRow('Created', `${item.created_days_old} (${formatToLocal(item.created_at_str)})`);
+        detailsHtml += createDetailRow('Last Updated', `${item.updated_friendly} (${formatToLocal(item.updated_at_str)})`);
 
         modalDetailsGrid.innerHTML = detailsHtml;
 
@@ -342,7 +277,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function closeModal() {
-        modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+        }
     }
 
     document.addEventListener('click', function(event) {
@@ -357,19 +294,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    closeModalBtn.addEventListener('click', closeModal);
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', closeModal);
+    }
+
     window.addEventListener('click', (event) => {
         if (event.target === modal) {
             closeModal();
         }
     });
+
     window.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && modal.style.display === 'flex') {
+        if (event.key === 'Escape' && modal && modal.style.display === 'flex') {
             closeModal();
         }
     });
 
-
+    // Initial data fetch and auto-refresh
     if (AUTO_REFRESH_INTERVAL_MS > 0) {
         setTimeout(refreshTicketData, 100);
         setInterval(refreshTicketData, AUTO_REFRESH_INTERVAL_MS);

@@ -2,59 +2,77 @@
 
 {% block title %}Settings{% endblock %}
 
-{% block head %}
-    {# The link to settings.css has been removed #}
-{% endblock %}
-
 {% block main_header %}
-    {# This block is intentionally left empty to remove the header on this page. #}
+<div class="card u-mb-3">
+    <div class="card__header">
+        <h1 class="card__title">Settings</h1>
+    </div>
+</div>
 {% endblock main_header %}
 
 {% block content %}
-<div class="widget-container">
-    <div class="widget-header">
-        <h2>Application Settings</h2>
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert--{{ 'success' if category == 'success' else 'error' }} u-mb-2">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="card u-mb-3">
+    <div class="card__header">
+        <h2 class="card__title">Ticket Watcher Scheduler</h2>
     </div>
-    <div class="widget-content">
+    <div class="card__body">
+        <p class="u-mb-2">
+            <strong>Status:</strong>
+            <span class="status-text status-text--{{ 'success' if scheduler_status == 'Running' else 'warning' }}">
+                {{ scheduler_status }}
+            </span>
+        </p>
+        <p class="u-text-secondary u-mb-3">Control the background process that fetches new and updated tickets from Codex.</p>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+        <form action="{{ url_for('settings') }}" method="post">
+            <div class="form-group u-mb-3">
+                <label for="interval" class="form-group__label">Polling Interval (seconds)</label>
+                <input type="number" id="interval" name="interval" value="{{ poll_interval }}" min="30" class="form-group__input">
+            </div>
 
-        <div class="settings-section">
-            <h3>Ticket Watcher Scheduler</h3>
-            <p>
-                <strong>Status:</strong>
-                <span id="scheduler-status" class="status-{{ 'running' if scheduler_status == 'Running' else 'stopped' }}">
-                    {{ scheduler_status }}
-                </span>
-            </p>
-            <p>Control the background process that fetches new and updated tickets from Freshservice.</p>
+            <div class="btn-group">
+                <button type="submit" name="action" value="update_interval" class="btn btn--primary">
+                    <svg class="btn__icon" viewBox="0 0 24 24" width="16" height="16">
+                        <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+                        <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/>
+                        <path d="M7 3v4a1 1 0 0 0 1 1h7"/>
+                    </svg>
+                    Update Interval
+                </button>
+                <button type="submit" name="action" value="start" class="btn btn--success" {% if scheduler_status == 'Running' %}disabled{% endif %}>
+                    <svg class="btn__icon" viewBox="0 0 24 24" width="16" height="16">
+                        <polygon points="6 3 20 12 6 21 6 3"/>
+                    </svg>
+                    Start Watcher
+                </button>
+                <button type="submit" name="action" value="stop" class="btn btn--danger" {% if scheduler_status == 'Stopped' %}disabled{% endif %}>
+                    <svg class="btn__icon" viewBox="0 0 24 24" width="16" height="16">
+                        <rect x="6" y="6" width="12" height="12" rx="2"/>
+                    </svg>
+                    Stop Watcher
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
-            <form action="{{ url_for('settings') }}" method="post">
-                <div class="form-group">
-                    <label for="interval">Polling Interval (seconds)</label>
-                    <input type="number" id="interval" name="interval" value="{{ poll_interval }}" min="30">
-                </div>
-
-                <div class="button-group">
-                    <button type="submit" name="action" value="update_interval" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Update Interval
-                    </button>
-                    <button type="submit" name="action" value="start" class="btn btn-success" {% if scheduler_status == 'Running' %}disabled{% endif %}>
-                        <i class="fas fa-play"></i> Start Watcher
-                    </button>
-                    <button type="submit" name="action" value="stop" class="btn btn-danger" {% if scheduler_status == 'Stopped' %}disabled{% endif %}>
-                        <i class="fas fa-stop"></i> Stop Watcher
-                    </button>
-                </div>
-            </form>
-        </div>
-
+<div class="card">
+    <div class="card__header">
+        <h2 class="card__title">Data Source</h2>
+    </div>
+    <div class="card__body">
+        <p class="u-text-secondary">
+            Beacon pulls ticket data from Codex's <code>/api/tickets/active</code> endpoint.
+            Ensure Codex is running and has ticket sync enabled.
+        </p>
     </div>
 </div>
 {% endblock %}

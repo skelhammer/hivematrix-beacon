@@ -1,82 +1,96 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Ticket Dash{% endblock %} - Integotec</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/layouts.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
-    <link rel="icon" href="{{ url_for('static', filename='images/integotec_logo.png') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>{% block title %}Beacon{% endblock %} - HiveMatrix</title>
+    <link rel="stylesheet" href="/nexus/static/css/global.css">
+    <link rel="stylesheet" href="/nexus/static/css/side-panel.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
     {% block head %}{% endblock %}
 </head>
-<body class="light-mode">
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <span class="logo-text">Ticket Dash</span>
-            <button id="sidebar-toggle" class="sidebar-toggle-btn">
-                <i class="fas fa-bars"></i>
-            </button>
-        </div>
-        <ul class="sidebar-nav">
-            <li>
-                <a href="{{ url_for('dashboard_typed', view_slug='helpdesk') }}" class="{{ 'active' if current_view_slug == 'helpdesk' else '' }}">
-                    <i class="fas fa-headset"></i>
-                    <span>Helpdesk</span>
-                </a>
-            </li>
-            <li>
-                <a href="{{ url_for('dashboard_typed', view_slug='professional-services') }}" class="{{ 'active' if current_view_slug == 'professional-services' else '' }}">
-                    <i class="fa-solid fa-helmet-safety"></i>
-                    <span>[PLAN-G]</span>
-                </a>
-            </li>
-             <li>
-                <a href="{{ url_for('dashboard_fun') }}">
-                    <i class="fas fa-gamepad"></i>
-                    <span>Fun Mode</span>
-                </a>
-            </li>
-        </ul>
-        <div class="sidebar-footer">
-            <a href="{{ url_for('settings') }}">
-                <i class="fas fa-cog"></i>
-                <span>Settings</span>
-            </a>
-            <div class="theme-switch-wrapper">
-                <label class="theme-switch" for="checkbox">
-                    <input type="checkbox" id="checkbox" />
-                    <div class="slider round"></div>
-                </label>
+<body>
+    <div class="hivematrix-layout">
+        <aside class="hivematrix-side-panel" id="sidePanel">
+            <div class="side-panel__header">
+                <button class="side-panel__toggle" id="sidebarToggle" title="Toggle sidebar">
+                    <svg viewBox="0 0 24 24">
+                        <line x1="4" x2="20" y1="12" y2="12"/>
+                        <line x1="4" x2="20" y1="6" y2="6"/>
+                        <line x1="4" x2="20" y1="18" y2="18"/>
+                    </svg>
+                </button>
+                <h1 class="side-panel__title">Beacon</h1>
             </div>
-        </div>
-    </div>
 
-    <div class="main-content">
-        {% block main_header %}
-        <header class="main-header">
-            <div class="header-left">
-                <h1>{{ page_title_display }}</h1>
+            <nav class="side-panel__nav">
+                <ul class="side-panel__list">
+                    <li class="side-panel__item {{ 'side-panel__item--active' if current_view_slug == 'helpdesk' else '' }}">
+                        <a href="{{ url_for('dashboard_typed', view_slug='helpdesk') }}" class="side-panel__link">
+                            <span class="side-panel__icon">
+                                <svg viewBox="0 0 24 24"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/></svg>
+                            </span>
+                            <span class="side-panel__label">Helpdesk</span>
+                        </a>
+                    </li>
+                    <li class="side-panel__item {{ 'side-panel__item--active' if current_view_slug == 'professional-services' else '' }}">
+                        <a href="{{ url_for('dashboard_typed', view_slug='professional-services') }}" class="side-panel__link">
+                            <span class="side-panel__icon">
+                                <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            </span>
+                            <span class="side-panel__label">[PLAN-G]</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="side-panel__footer">
+                <a href="{{ url_for('settings') }}" class="side-panel__link">
+                    <span class="side-panel__icon">
+                        <svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </span>
+                    <span class="side-panel__label">Settings</span>
+                </a>
+                <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+                    <div class="theme-toggle__track">
+                        <div class="theme-toggle__thumb">
+                            <svg class="theme-icon-sun" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="4"/>
+                                <path d="M12 2v2"/>
+                                <path d="M12 20v2"/>
+                                <path d="m4.93 4.93 1.41 1.41"/>
+                                <path d="m17.66 17.66 1.41 1.41"/>
+                                <path d="M2 12h2"/>
+                                <path d="M20 12h2"/>
+                                <path d="m6.34 17.66-1.41 1.41"/>
+                                <path d="m19.07 4.93-1.41 1.41"/>
+                            </svg>
+                            <svg class="theme-icon-moon" viewBox="0 0 24 24">
+                                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </button>
             </div>
-            <div class="header-center">
-                <div class="info-metric centered">
-                    <div class="siren" id="siren-left"></div>
-                    <span class="total-active-label"><strong>Total Active:</strong></span>
-                    <strong id="total-active-items-count">{{ s1_items|length + s2_items|length + s3_items|length + s4_items|length }}</strong>
-                    <div class="siren" id="siren-right"></div>
+        </aside>
+
+        <main class="hivematrix-content">
+            {% block main_header %}
+            <div class="card u-mb-3">
+                <div class="card__header">
+                    <h1 class="card__title">{{ page_title_display }}</h1>
+                    <div class="card__header-actions">
+                        <span class="status-text status-text--info">
+                            Total Active: <strong id="total-active-items-count">{{ s1_items|length + s2_items|length + s3_items|length + s4_items|length }}</strong>
+                        </span>
+                        <span class="u-text-small u-text-secondary">
+                            Last Update: <strong id="dashboard-generated-time">Loading...</strong>
+                        </span>
+                    </div>
                 </div>
             </div>
-            <div class="header-right">
-                <div class="info-metric">
-                    <span>Last Update</span>
-                    <strong id="dashboard-generated-time">Loading...</strong>
-                </div>
-            </div>
-        </header>
-        {% endblock main_header %}
+            {% endblock main_header %}
 
-        <main class="content-area">
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -86,6 +100,39 @@
         window.AUTO_REFRESH_MS = {{ auto_refresh_ms }};
         window.CURRENT_TICKET_TYPE_SLUG = "{{ current_view_slug }}";
         window.CURRENT_TICKET_TYPE_DISPLAY = "{{ current_view_display }}";
+
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Theme toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const html = document.documentElement;
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        html.setAttribute('data-theme', savedTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+
+        // Sidebar toggle
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidePanel = document.getElementById('sidePanel');
+
+        // Load saved sidebar state
+        const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (sidebarCollapsed) {
+            sidePanel.classList.add('collapsed');
+        }
+
+        sidebarToggle.addEventListener('click', () => {
+            sidePanel.classList.toggle('collapsed');
+            localStorage.setItem('sidebarCollapsed', sidePanel.classList.contains('collapsed'));
+        });
     </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block scripts %}{% endblock %}
