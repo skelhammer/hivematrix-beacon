@@ -4,6 +4,29 @@
 
 {% block content %}
 <div class="card u-mb-3">
+    <div class="card__header">
+        <div class="card__header-left">
+            <h1 class="card__title">Beacon</h1>
+            <div class="btn-group u-ml-3">
+                <a href="helpdesk"
+                   class="btn btn--sm {{ 'btn--primary' if current_view_slug == 'helpdesk' else 'btn--outline' }}">
+                    Helpdesk
+                </a>
+                <a href="professional-services"
+                   class="btn btn--sm {{ 'btn--primary' if current_view_slug == 'professional-services' else 'btn--outline' }}">
+                    [PLAN-G]
+                </a>
+            </div>
+        </div>
+        <div class="card__header-actions">
+            <span class="status-text status-text--info">
+                Total Active: <strong id="total-active-items-count">{{ s1_items|length + s2_items|length + s3_items|length + s4_items|length }}</strong>
+            </span>
+            <span class="u-text-small u-text-secondary">
+                Last Update: <strong id="dashboard-generated-time">Loading...</strong>
+            </span>
+        </div>
+    </div>
     <div class="card__body">
         <div class="form-group">
             <label for="agent-filter" class="form-group__label">Filter by Agent:</label>
@@ -139,4 +162,14 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.FRESHSERVICE_BASE_URL = "{{ freshservice_base_url }}";
+    window.AUTO_REFRESH_MS = {{ auto_refresh_ms }};
+    window.CURRENT_TICKET_TYPE_SLUG = "{{ current_view_slug }}";
+    window.CURRENT_TICKET_TYPE_DISPLAY = "{{ current_view_display }}";
+</script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% endblock %}
