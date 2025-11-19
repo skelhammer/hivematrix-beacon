@@ -143,7 +143,7 @@ def load_agent_mapping():
     """Load agent mapping from Codex API."""
     global AGENT_MAPPING
 
-    response = call_service('codex', '/api/agents')
+    response = call_service('codex', '/api/freshservice/agents')
 
     if response and response.status_code == 200:
         agents = response.json()
