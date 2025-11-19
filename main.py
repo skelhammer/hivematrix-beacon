@@ -146,8 +146,8 @@ def get_freshservice_domain():
         if response and response.status_code == 200:
             _freshservice_domain = response.json().get('value', 'freshservice.com')
             return _freshservice_domain
-    except:
-        pass
+    except (requests.RequestException, ValueError, KeyError) as e:
+        app.logger.debug(f"Could not fetch freshservice domain from Codex: {e}")
 
     # Fallback default
     return 'freshservice.com'
