@@ -123,12 +123,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function refreshTicketData() {
         try {
-            const url = new URL(`/api/tickets/${CURRENT_TICKET_TYPE_SLUG}`, window.location.origin);
+            // Get base path from current location (e.g., /beacon)
+            const pathParts = window.location.pathname.split('/');
+            const basePath = pathParts[1] ? `/${pathParts[1]}` : '';
+
+            const url = new URL(`${basePath}/api/tickets/${CURRENT_TICKET_TYPE_SLUG}`, window.location.origin);
             const selectedAgentId = new URLSearchParams(window.location.search).get('agent_id');
             if (selectedAgentId) {
                 url.searchParams.set('agent_id', selectedAgentId);
             }
-            const response = await fetch(url);
+            const response = await fetch(url, { credentials: 'same-origin' });
             if (!response.ok) {
                 console.error(`Failed to fetch data:`, response.status);
                 return;
