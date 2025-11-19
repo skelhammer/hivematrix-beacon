@@ -4,6 +4,7 @@ import datetime
 import requests
 import logging
 from flask import Flask, render_template, jsonify, abort, redirect, url_for, request, flash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -27,6 +28,15 @@ INDEX_TEMPLATE = "index.html"
 
 app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = os.urandom(24)
+
+# Apply ProxyFix for Nexus proxy compatibility
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,
+    x_proto=1,
+    x_host=1,
+    x_prefix=1
+)
 
 # Load services configuration
 try:
