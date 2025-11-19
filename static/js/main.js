@@ -142,13 +142,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const totalActiveItems = data.total_active_items;
             const totalActiveItemsCount = document.getElementById('total-active-items-count');
+            const sirenLeft = document.getElementById('siren-left');
+            const sirenRight = document.getElementById('siren-right');
+
             if (totalActiveItemsCount) {
                 totalActiveItemsCount.textContent = totalActiveItems;
 
-                if (totalActiveItems >= 100) {
-                    totalActiveItemsCount.classList.add('pulse-red');
-                } else {
-                    totalActiveItemsCount.classList.remove('pulse-red');
+                // Remove all warning classes
+                totalActiveItemsCount.classList.remove('count-warning', 'count-danger', 'count-critical', 'count-emergency', 'pulse-red');
+                if (sirenLeft) sirenLeft.classList.remove('active');
+                if (sirenRight) sirenRight.classList.remove('active');
+
+                // Apply appropriate warning state
+                if (totalActiveItems >= 120) {
+                    // Emergency: red blinking with sirens
+                    totalActiveItemsCount.classList.add('count-emergency');
+                    if (sirenLeft) sirenLeft.classList.add('active');
+                    if (sirenRight) sirenRight.classList.add('active');
+                } else if (totalActiveItems >= 110) {
+                    // Critical: red and blinking
+                    totalActiveItemsCount.classList.add('count-critical');
+                } else if (totalActiveItems >= 100) {
+                    // Danger: solid red
+                    totalActiveItemsCount.classList.add('count-danger');
+                } else if (totalActiveItems >= 90) {
+                    // Warning: yellow
+                    totalActiveItemsCount.classList.add('count-warning');
                 }
             }
 
@@ -277,12 +296,12 @@ document.addEventListener('DOMContentLoaded', () => {
         tempDiv.innerHTML = item.description_text || "No description provided.";
         modalDescription.textContent = tempDiv.textContent || tempDiv.innerText || "";
 
-        modal.style.display = 'flex';
+        modal.classList.add('active');
     }
 
     function closeModal() {
         if (modal) {
-            modal.style.display = 'none';
+            modal.classList.remove('active');
         }
     }
 
@@ -309,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && modal && modal.style.display === 'flex') {
+        if (event.key === 'Escape' && modal && modal.classList.contains('active')) {
             closeModal();
         }
     });

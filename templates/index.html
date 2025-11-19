@@ -18,10 +18,15 @@
                 </a>
             </div>
         </div>
+        <div class="ticket-count-display">
+            <span class="ticket-count-label">Total Active</span>
+            <div class="ticket-count-wrapper">
+                <span class="siren siren--left" id="siren-left"></span>
+                <span class="ticket-count-number" id="total-active-items-count">{{ s1_items|length + s2_items|length + s3_items|length + s4_items|length }}</span>
+                <span class="siren siren--right" id="siren-right"></span>
+            </div>
+        </div>
         <div class="card__header-actions">
-            <span class="status-text status-text--info">
-                Total Active: <strong id="total-active-items-count">{{ s1_items|length + s2_items|length + s3_items|length + s4_items|length }}</strong>
-            </span>
             <span class="u-text-small u-text-secondary">
                 Last Update: <strong id="dashboard-generated-time">Loading...</strong>
             </span>
@@ -148,7 +153,7 @@
     </div>
 </div>
 
-<div id="ticket-modal" class="modal" style="display: none;">
+<div id="ticket-modal" class="modal">
     <div class="modal__dialog">
         <div class="modal__header">
             <h3 class="modal__title" id="modal-title">Ticket Details</h3>
