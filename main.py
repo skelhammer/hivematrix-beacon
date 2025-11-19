@@ -29,6 +29,10 @@ INDEX_TEMPLATE = "index.html"
 app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = os.urandom(24)
 
+# Configure logging level from environment
+log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+app.logger.setLevel(getattr(logging, log_level, logging.INFO))
+
 # Apply ProxyFix for Nexus proxy compatibility
 app.wsgi_app = ProxyFix(
     app.wsgi_app,
