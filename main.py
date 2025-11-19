@@ -202,6 +202,10 @@ def filter_tickets_by_agent(tickets, agent_id):
 
 def get_tickets_for_view(view_slug, agent_id=None):
     """Get tickets from Codex filtered by view and optionally by agent."""
+    # Load agent mapping if not loaded
+    if not AGENT_MAPPING:
+        load_agent_mapping()
+
     data = fetch_tickets_from_codex()
 
     if not data:
