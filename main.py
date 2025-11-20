@@ -15,7 +15,7 @@ load_dotenv('.flaskenv')
 STATIC_DIR = "static"
 AUTO_REFRESH_INTERVAL_SECONDS = 60  # 1 minute for responsive dashboard
 
-# Professional Services Group ID from Freshservice
+# Professional Services Group ID (configured per PSA provider)
 PROFESSIONAL_SERVICES_GROUP_ID = 19000234009
 
 # --- View Configuration ---
@@ -80,8 +80,8 @@ app.logger.addHandler(handler)
 # Agent mapping for display
 AGENT_MAPPING = {}
 
-# Cache for Freshservice domain
-_freshservice_domain = None
+# Cache for PSA ticket base URL
+_psa_ticket_base_url = None
 
 
 def get_service_token(target_service):
@@ -142,31 +142,39 @@ def call_service(service_name, path, method='GET', **kwargs):
         return None
 
 
-def get_freshservice_domain():
-    """Get Freshservice domain from Codex configuration."""
-    global _freshservice_domain
+def get_psa_ticket_base_url():
+    """Get PSA ticket base URL from Codex configuration."""
+    global _psa_ticket_base_url
 
-    if _freshservice_domain:
-        return _freshservice_domain
+    if _psa_ticket_base_url:
+        return _psa_ticket_base_url
 
-    # Try to get from Codex's config endpoint
+    # Try to get from Codex's PSA config endpoint
     try:
-        response = call_service('codex', '/api/config/freshservice_domain')
+        response = call_service('codex', '/api/psa/config')
         if response and response.status_code == 200:
-            _freshservice_domain = response.json().get('value', 'freshservice.com')
-            return _freshservice_domain
+            data = response.json()
+            default_provider = data.get('default_provider', 'freshservice')
+            providers = data.get('providers', {})
+
+            if default_provider in providers:
+                # Get ticket URL template and convert to base URL
+                template = providers[default_provider].get('ticket_url_template', '')
+                # Remove the {ticket_id} placeholder to get base URL
+                _psa_ticket_base_url = template.replace('{ticket_id}', '')
+                return _psa_ticket_base_url
     except (requests.RequestException, ValueError, KeyError) as e:
-        app.logger.debug(f"Could not fetch freshservice domain from Codex: {e}")
+        app.logger.debug(f"Could not fetch PSA config from Codex: {e}")
 
     # Fallback default
-    return 'freshservice.com'
+    return 'https://freshservice.com/a/tickets/'
 
 
 def load_agent_mapping():
     """Load agent mapping from Codex API."""
     global AGENT_MAPPING
 
-    response = call_service('codex', '/api/freshservice/agents')
+    response = call_service('codex', '/api/psa/agents')
 
     if response and response.status_code == 200:
         agents = response.json()
@@ -299,8 +307,8 @@ def dashboard_typed(view_slug):
     section3_name = "Needs Agent / Update Overdue"
     section4_name = f"Other Active {current_view_display} Tickets"
 
-    # Get Freshservice domain for ticket links
-    freshservice_domain = get_freshservice_domain()
+    # Get PSA ticket base URL for ticket links
+    ticket_base_url = get_psa_ticket_base_url()
 
     return render_template(INDEX_TEMPLATE,
                            s1_items=s1_items,
@@ -309,7 +317,7 @@ def dashboard_typed(view_slug):
                            s4_items=s4_items,
                            dashboard_generated_time_iso=dashboard_generated_time_iso,
                            auto_refresh_ms=AUTO_REFRESH_INTERVAL_SECONDS * 1000,
-                           freshservice_base_url=f"https://{freshservice_domain}/a/tickets/",
+                           ticket_base_url=ticket_base_url,
                            current_view_slug=view_slug,
                            current_view_display=current_view_display,
                            supported_views=SUPPORTED_VIEWS,

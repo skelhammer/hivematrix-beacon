@@ -4,7 +4,7 @@ Real-time ticket dashboard for monitoring helpdesk and professional services.
 
 ## Overview
 
-Beacon provides a visual monitoring tool for support teams to track ticket status at a glance. It displays tickets from Freshservice (via Codex) in prioritized categories with SLA indicators.
+Beacon provides a visual monitoring tool for support teams to track ticket status at a glance. It displays tickets from PSA systems (via Codex) in prioritized categories with SLA indicators.
 
 **Port:** 5001
 
@@ -44,7 +44,7 @@ Beacon provides a visual monitoring tool for support teams to track ticket statu
 
 Beacon requires:
 - **Core** - For service-to-service authentication
-- **Codex** - For ticket data from Freshservice
+- **Codex** - For ticket data from PSA systems
 
 ## Documentation
 
