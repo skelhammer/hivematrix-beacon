@@ -75,9 +75,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const createdDaysOld = item.created_days_old || 'N/A';
 
         let slaDetailHtml = '';
-        if (item.first_responded_at_iso === null && item.fr_due_by_str) {
+        // Only show FR Due if: no first response AND SLA is at risk (not normal)
+        const needsFR = !item.first_responded_at_iso && item.fr_due_by_str;
+        const slaAtRisk = slaClass && slaClass !== 'sla-normal' && slaClass !== 'sla-responded' && slaClass !== 'sla-none';
+        if (needsFR && slaAtRisk) {
             slaDetailHtml = `<div class="datetime-container" data-utc-datetime="${item.fr_due_by_str}" data-prefix="FR Due: "><small class="local-datetime">Loading...</small></div>`;
-        } else if (item.type === 'Service Request' && item.due_by_str) {
+        } else if (item.type === 'Service Request' && item.due_by_str && !item.first_responded_at_iso && slaAtRisk) {
             slaDetailHtml = `<div class="datetime-container" data-utc-datetime="${item.due_by_str}" data-prefix="Due: "><small class="local-datetime">Loading...</small></div>`;
         }
 

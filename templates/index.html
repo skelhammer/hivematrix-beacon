@@ -3,6 +3,29 @@
 {% block title %}{{ page_title_display }} Dashboard{% endblock %}
 
 {% block content %}
+<style>
+    /* Alternating row colors for better readability */
+    .data-table tbody tr:nth-child(odd) {
+        background-color: #f0f0f0 !important;
+    }
+    .data-table tbody tr:nth-child(even) {
+        background-color: #ffffff !important;
+    }
+    /* Hover effect */
+    .data-table tbody tr:hover {
+        background-color: #e0e0e0 !important;
+    }
+    /* Dark mode overrides */
+    [data-theme="dark"] .data-table tbody tr:nth-child(odd) {
+        background-color: #2a2a2a !important;
+    }
+    [data-theme="dark"] .data-table tbody tr:nth-child(even) {
+        background-color: #1e1e1e !important;
+    }
+    [data-theme="dark"] .data-table tbody tr:hover {
+        background-color: #3a3a3a !important;
+    }
+</style>
 <div class="card u-mb-3">
     <div class="card__header">
         <div class="card__header-left">
@@ -27,15 +50,17 @@
             </div>
         </div>
         <div class="card__header-actions">
-            <span class="u-text-small u-text-secondary">
-                Last Update: <strong id="dashboard-generated-time">Loading...</strong>
-            </span>
+            <div style="text-align: right;">
+                <span class="u-text-small u-text-secondary">Last Sync:</span>
+                <br>
+                <strong id="dashboard-generated-time" style="font-size: 1.25rem;">Loading...</strong>
+            </div>
         </div>
     </div>
     <div class="card__body">
-        <div class="form-group">
-            <label for="agent-filter" class="form-group__label">Filter by Agent:</label>
-            <select id="agent-filter" class="form-group__select">
+        <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
+            <label for="agent-filter" class="form-group__label" style="margin-bottom: 0;">Filter by Agent:</label>
+            <select id="agent-filter" class="form-group__select" style="flex: 1; max-width: 200px;">
                 <option value="">All Agents</option>
                 {% for agent_id, agent_name in agent_mapping.items() %}
                     <option value="{{ agent_id }}" {% if agent_id == selected_agent_id %}selected{% endif %}>{{ agent_name }}</option>

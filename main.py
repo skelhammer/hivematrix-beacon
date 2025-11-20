@@ -12,7 +12,7 @@ load_dotenv('.flaskenv')
 
 # --- Configuration ---
 STATIC_DIR = "static"
-AUTO_REFRESH_INTERVAL_SECONDS = 30
+AUTO_REFRESH_INTERVAL_SECONDS = 60  # 1 minute for responsive dashboard
 
 # Professional Services Group ID from Freshservice
 PROFESSIONAL_SERVICES_GROUP_ID = 19000234009
@@ -172,10 +172,12 @@ def fetch_tickets_from_codex():
     response = call_service('codex', '/api/tickets/active')
 
     if response and response.status_code == 200:
-        return response.json()
+        data = response.json()
+        # Extract last_sync_time from Codex response
+        return data, data.get('last_sync_time')
     else:
         app.logger.error("Failed to fetch tickets from Codex")
-        return None
+        return None, None
 
 
 def filter_tickets_by_view(tickets, view_slug):
@@ -210,10 +212,10 @@ def get_tickets_for_view(view_slug, agent_id=None):
     if not AGENT_MAPPING:
         load_agent_mapping()
 
-    data = fetch_tickets_from_codex()
+    data, last_sync_time = fetch_tickets_from_codex()
 
     if not data:
-        return [], [], [], []
+        return [], [], [], [], None
 
     # Extract sections from Codex response
     section1 = data.get('section1', [])
@@ -234,7 +236,7 @@ def get_tickets_for_view(view_slug, agent_id=None):
         s3 = filter_tickets_by_agent(s3, agent_id)
         s4 = filter_tickets_by_agent(s4, agent_id)
 
-    return s1, s2, s3, s4
+    return s1, s2, s3, s4, last_sync_time
 
 
 # --- Routes ---
@@ -274,10 +276,14 @@ def dashboard_typed(view_slug):
 
     app.logger.info(f"Loading dashboard for view: {current_view_display} (slug: {view_slug})")
 
-    s1_items, s2_items, s3_items, s4_items = get_tickets_for_view(view_slug, agent_id=agent_id)
+    s1_items, s2_items, s3_items, s4_items, last_sync_time = get_tickets_for_view(view_slug, agent_id=agent_id)
 
-    generated_time_utc = datetime.datetime.now(datetime.timezone.utc)
-    dashboard_generated_time_iso = generated_time_utc.isoformat()
+    # Use last_sync_time from Codex if available, otherwise use current time
+    if last_sync_time:
+        dashboard_generated_time_iso = last_sync_time
+    else:
+        generated_time_utc = datetime.datetime.now(datetime.timezone.utc)
+        dashboard_generated_time_iso = generated_time_utc.isoformat()
 
     section1_name = f"Open {current_view_display} Tickets"
     section2_name = "Customer Replied"
@@ -318,7 +324,13 @@ def api_tickets(view_slug):
 
     app.logger.debug(f"API: /api/tickets/{view_slug} called")
 
-    s1_items, s2_items, s3_items, s4_items = get_tickets_for_view(view_slug, agent_id=agent_id)
+    s1_items, s2_items, s3_items, s4_items, last_sync_time = get_tickets_for_view(view_slug, agent_id=agent_id)
+
+    # Use last_sync_time from Codex if available, otherwise use current time
+    if last_sync_time:
+        dashboard_time_iso = last_sync_time
+    else:
+        dashboard_time_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     response_data = {
         's1_items': s1_items,
@@ -326,7 +338,7 @@ def api_tickets(view_slug):
         's3_items': s3_items,
         's4_items': s4_items,
         'total_active_items': len(s1_items) + len(s2_items) + len(s3_items) + len(s4_items),
-        'dashboard_generated_time_iso': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        'dashboard_generated_time_iso': dashboard_time_iso,
         'view': current_view_display,
         'section1_name_js': f"Open {current_view_display} Tickets",
         'section2_name_js': "Customer Replied",
