@@ -5,9 +5,12 @@
 {% block content %}
 <div class="card u-mb-3">
     <div class="card__header">
-        <div class="card__header-left u-items-center">
-            <h1 class="card__title">Beacon</h1>
-            <div class="btn-group u-ml-2">
+        <div class="card__header-left u-items-center u-flex-gap-2">
+            <div style="flex-shrink: 0;">
+                <h1 class="card__title u-mb-0">Beacon - Ticket Dashboard</h1>
+                <p class="u-text-muted u-text-sm u-mb-0">Real-time view of active tickets from Codex</p>
+            </div>
+            <div class="btn-group">
                 <a href="helpdesk"
                    class="btn btn--sm {{ 'btn--primary' if current_view_slug == 'helpdesk' else 'btn--outline' }}">
                     Helpdesk

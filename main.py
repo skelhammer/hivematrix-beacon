@@ -258,24 +258,6 @@ def get_tickets_for_view(view_slug, agent_id=None):
 
 # --- Routes ---
 
-@app.route('/settings', methods=['GET', 'POST'])
-def settings():
-    """Settings page for Beacon configuration."""
-    if request.method == 'POST':
-        action = request.form.get('action')
-        if action == 'update_interval':
-            flash('Refresh interval is controlled by client-side settings.', 'info')
-        return redirect(url_for('settings'))
-
-    # Check Codex connection status
-    response = call_service('codex', '/api/health')
-    scheduler_status = "Running" if response and response.status_code == 200 else "Stopped"
-
-    return render_template('settings.html',
-                           scheduler_status=scheduler_status,
-                           poll_interval=AUTO_REFRESH_INTERVAL_SECONDS)
-
-
 @app.route('/')
 def dashboard_default():
     """Redirect to default view."""
