@@ -154,20 +154,22 @@ def get_psa_ticket_base_url():
         response = call_service('codex', '/api/psa/config')
         if response and response.status_code == 200:
             data = response.json()
-            default_provider = data.get('default_provider', 'freshservice')
+            default_provider = data.get('default_provider')
             providers = data.get('providers', {})
 
-            if default_provider in providers:
+            if default_provider and default_provider in providers:
                 # Get ticket URL template and convert to base URL
                 template = providers[default_provider].get('ticket_url_template', '')
-                # Remove the {ticket_id} placeholder to get base URL
-                _psa_ticket_base_url = template.replace('{ticket_id}', '')
-                return _psa_ticket_base_url
+                if template:
+                    # Remove the {ticket_id} placeholder to get base URL
+                    _psa_ticket_base_url = template.replace('{ticket_id}', '')
+                    return _psa_ticket_base_url
     except (requests.RequestException, ValueError, KeyError) as e:
-        app.logger.debug(f"Could not fetch PSA config from Codex: {e}")
+        app.logger.error(f"Could not fetch PSA config from Codex: {e}")
 
-    # Fallback default
-    return 'https://freshservice.com/a/tickets/'
+    # No PSA configured - return None to indicate failure
+    app.logger.warning("No PSA provider configured - ticket links will not work")
+    return None
 
 
 def load_agent_mapping():
