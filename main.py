@@ -6,6 +6,7 @@ import logging
 from flask import Flask, render_template, jsonify, abort, redirect, url_for, request, flash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
+from version import VERSION, SERVICE_NAME
 
 # Load environment variables
 load_dotenv('.flaskenv')
@@ -32,6 +33,14 @@ app.secret_key = os.urandom(24)
 # Configure logging level from environment
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 app.logger.setLevel(getattr(logging, log_level, logging.INFO))
+
+# Context processor to inject version into all templates
+@app.context_processor
+def inject_version():
+    return {
+        'app_version': VERSION,
+        'app_service_name': SERVICE_NAME
+    }
 
 # Apply ProxyFix for Nexus proxy compatibility
 app.wsgi_app = ProxyFix(

@@ -10,6 +10,10 @@
 <body>
     {% block content %}{% endblock %}
 
+    <div class="version-footer">
+        <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>
+    </div>
+
     <script>
         // Initialize Lucide icons
         lucide.createIcons();
