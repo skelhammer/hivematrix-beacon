@@ -370,4 +370,4 @@ if __name__ == '__main__':
     app.logger.info(f"Starting Beacon - Ticket Dashboard")
     app.logger.info(f"Supported views: {SUPPORTED_VIEWS}")
 
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    app.run(host='127.0.0.1', port=5001, debug=False)
