@@ -7,4 +7,6 @@ load_dotenv('.flaskenv')
 from main import app
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5001)
+    # Security: Bind to localhost only - Beacon should not be exposed externally
+    # Access via Nexus proxy at https://localhost:443/beacon
+    app.run(host='127.0.0.1', port=5001)
