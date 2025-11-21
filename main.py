@@ -5,6 +5,8 @@ import requests
 import logging
 from flask import Flask, render_template, jsonify, abort, redirect, url_for, request, flash
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 from version import VERSION, SERVICE_NAME
 
@@ -49,6 +51,14 @@ app.wsgi_app = ProxyFix(
     x_proto=1,
     x_host=1,
     x_prefix=1
+)
+
+# Initialize rate limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
 )
 
 # Load services configuration
@@ -180,8 +190,10 @@ def load_agent_mapping():
 
     if response and response.status_code == 200:
         agents = response.json()
-        AGENT_MAPPING = {agent['id']: agent['name'] for agent in agents}
-        app.logger.info(f"Loaded {len(AGENT_MAPPING)} agents from Codex")
+        # Use external_id (Freshservice ID) not internal database id
+        # Only include active agents in the dropdown
+        AGENT_MAPPING = {agent['external_id']: agent['name'] for agent in agents if agent.get('active', True)}
+        app.logger.info(f"Loaded {len(AGENT_MAPPING)} active agents from Codex")
     else:
         app.logger.warning("Failed to load agents from Codex")
 
@@ -218,10 +230,12 @@ def filter_tickets_by_view(tickets, view_slug):
 
 
 def filter_tickets_by_agent(tickets, agent_id):
-    """Filter tickets by agent ID."""
+    """Filter tickets by agent ID (external_id from Freshservice)."""
     if not tickets or not agent_id:
         return tickets
 
+    # Ensure type consistency - convert both to int for comparison
+    agent_id = int(agent_id)
     return [t for t in tickets if t.get('responder_id') == agent_id]
 
 
