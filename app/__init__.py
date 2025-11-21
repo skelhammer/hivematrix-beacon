@@ -218,6 +218,7 @@ def get_tickets_for_view(view_slug, agent_id=None):
 # --- Routes ---
 
 @app.route('/')
+@limiter.exempt
 def dashboard_default():
     """Redirect to default view."""
     return redirect(DEFAULT_VIEW_SLUG)
