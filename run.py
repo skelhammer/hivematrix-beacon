@@ -6,7 +6,7 @@ from pathlib import Path
 # Load .flaskenv before importing app
 load_dotenv('.flaskenv')
 
-from main import app
+from app import app
 
 def get_debug_mode():
     """Read environment from master_config.json to determine debug mode"""
@@ -24,16 +24,17 @@ if __name__ == "__main__":
     # Collect template files for auto-reload in debug mode
     extra_files = []
     if debug:
-        templates_dir = Path('templates')
+        # Add all HTML templates
+        templates_dir = Path('app/templates')
         if templates_dir.exists():
             for template_file in templates_dir.rglob('*.html'):
                 extra_files.append(str(template_file))
 
-        static_dir = Path('static')
-        if static_dir.exists():
-            for static_file in static_dir.rglob('*'):
-                if static_file.is_file():
-                    extra_files.append(str(static_file))
+        # Add all Python files in app directory
+        app_dir = Path('app')
+        if app_dir.exists():
+            for py_file in app_dir.rglob('*.py'):
+                extra_files.append(str(py_file))
 
     # Security: Bind to localhost only - Beacon should not be exposed externally
     # Access via Nexus proxy at https://localhost:443/beacon

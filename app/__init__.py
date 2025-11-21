@@ -3,14 +3,13 @@ import json
 import datetime
 import requests
 import logging
-import time
-import jwt
 from flask import Flask, render_template, jsonify, abort, redirect, url_for, request, flash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
-from version import VERSION, SERVICE_NAME
+from app.version import VERSION, SERVICE_NAME
+from app.service_client import call_service
 
 # Load environment variables
 load_dotenv('.flaskenv')
@@ -94,106 +93,6 @@ AGENT_MAPPING = {}
 
 # Cache for PSA ticket base URL
 _psa_ticket_base_url = None
-
-# Token cache: {target_service: {'token': str, 'expires_at': float}}
-_token_cache = {}
-
-
-def _get_cached_token(service_name):
-    """Get cached token if valid, otherwise None."""
-    if service_name not in _token_cache:
-        return None
-
-    cache_entry = _token_cache[service_name]
-    # Check if token expires in next 60 seconds
-    if cache_entry['expires_at'] - time.time() < 60:
-        return None
-
-    return cache_entry['token']
-
-
-def _cache_token(service_name, token):
-    """Cache token with expiration time."""
-    try:
-        # Decode token to get expiration (without verification since we trust Core)
-        decoded = jwt.decode(token, options={"verify_signature": False})
-        expires_at = decoded.get('exp', time.time() + 300)  # Default 5 min if no exp
-    except Exception:
-        # If we can't decode, cache for 5 minutes
-        expires_at = time.time() + 300
-
-    _token_cache[service_name] = {
-        'token': token,
-        'expires_at': expires_at
-    }
-
-
-def get_service_token(target_service):
-    """Get a service token from Core for authenticated service-to-service calls."""
-    # Check for cached token first
-    token = _get_cached_token(target_service)
-
-    if token:
-        return token
-
-    # Get a new service token from Core
-    core_url = app.config.get('CORE_SERVICE_URL')
-    calling_service = app.config.get('SERVICE_NAME', 'beacon')
-
-    try:
-        response = requests.post(
-            f"{core_url}/service-token",
-            json={
-                'calling_service': calling_service,
-                'target_service': target_service
-            },
-            timeout=5
-        )
-
-        if response.status_code == 200:
-            token = response.json().get('token')
-            # Cache the token
-            _cache_token(target_service, token)
-            return token
-        else:
-            app.logger.error(f"Failed to get service token: {response.status_code}")
-            return None
-    except Exception as e:
-        app.logger.error(f"Error getting service token: {e}")
-        return None
-
-
-def call_service(service_name, path, method='GET', **kwargs):
-    """Make an authenticated request to another HiveMatrix service."""
-    services = app.config.get('SERVICES', {})
-
-    if service_name not in services:
-        app.logger.error(f"Service '{service_name}' not found in services.json")
-        return None
-
-    service_url = services[service_name]['url']
-    token = get_service_token(service_name)
-
-    if not token:
-        app.logger.error(f"Could not get token for {service_name}")
-        return None
-
-    url = f"{service_url}{path}"
-    headers = kwargs.pop('headers', {})
-    headers['Authorization'] = f'Bearer {token}'
-
-    try:
-        response = requests.request(
-            method=method,
-            url=url,
-            headers=headers,
-            timeout=kwargs.pop('timeout', 30),
-            **kwargs
-        )
-        return response
-    except Exception as e:
-        app.logger.error(f"Error calling {service_name}{path}: {e}")
-        return None
 
 
 def get_psa_ticket_base_url():
