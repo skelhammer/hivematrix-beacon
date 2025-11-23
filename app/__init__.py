@@ -3,6 +3,7 @@ import json
 import datetime
 import requests
 import logging
+import sys
 from flask import Flask, render_template, jsonify, abort, redirect, url_for, request, flash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
@@ -10,6 +11,10 @@ from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 from app.version import VERSION, SERVICE_NAME
 from app.service_client import call_service
+
+# Health check library
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from health_check import HealthChecker
 
 # Load environment variables
 load_dotenv('.flaskenv')
@@ -307,6 +312,34 @@ def api_tickets(view_slug):
 
     app.logger.debug(f"API: Returning {response_data['total_active_items']} total items")
     return jsonify(response_data)
+
+
+# ====================  Health Check ====================
+
+@app.route('/health', methods=['GET'])
+@limiter.exempt
+def health_check():
+    """
+    Comprehensive health check endpoint.
+
+    Checks:
+    - Disk space
+    - Core service availability
+    - Codex service availability (for ticket data)
+
+    Returns:
+        JSON: Detailed health status with HTTP 200 (healthy) or 503 (unhealthy/degraded)
+    """
+    # Initialize health checker
+    health_checker = HealthChecker(
+        service_name='beacon',
+        dependencies=[
+            ('core', 'http://localhost:5000'),
+            ('codex', 'http://localhost:5010')
+        ]
+    )
+
+    return health_checker.get_health()
 
 
 if __name__ == '__main__':
