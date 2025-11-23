@@ -7,7 +7,7 @@ import sys
 from flask import Flask, render_template, jsonify, abort, redirect, url_for, request, flash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+from app.rate_limit_key import get_user_id_or_ip
 from dotenv import load_dotenv
 from app.version import VERSION, SERVICE_NAME
 from app.service_client import call_service
@@ -115,7 +115,7 @@ app.wsgi_app = ProxyFix(
 
 # Initialize rate limiter
 limiter = Limiter(
-    get_remote_address,
+    get_user_id_or_ip,  # Per-user rate limiting
     app=app,
     default_limits=["200 per day", "50 per hour"],
     storage_uri="memory://"
