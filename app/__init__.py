@@ -42,6 +42,13 @@ app.secret_key = os.urandom(24)
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 app.logger.setLevel(getattr(logging, log_level, logging.INFO))
 
+# Enable structured JSON logging with correlation IDs
+# Set ENABLE_JSON_LOGGING=false in environment to disable for development
+enable_json = os.environ.get("ENABLE_JSON_LOGGING", "true").lower() in ("true", "1", "yes")
+if enable_json:
+    from app.structured_logger import setup_structured_logging
+    setup_structured_logging(app, enable_json=True)
+
 # Context processor to inject version into all templates
 @app.context_processor
 def inject_version():
@@ -83,8 +90,22 @@ app.config['CORE_SERVICE_URL'] = os.environ.get('CORE_SERVICE_URL', 'http://loca
 
 if not app.debug:
     app.logger.setLevel(logging.INFO)
+
+# Enable structured JSON logging with correlation IDs
+# Set ENABLE_JSON_LOGGING=false in environment to disable for development
+enable_json = os.environ.get("ENABLE_JSON_LOGGING", "true").lower() in ("true", "1", "yes")
+if enable_json:
+    from app.structured_logger import setup_structured_logging
+    setup_structured_logging(app, enable_json=True)
 else:
     app.logger.setLevel(logging.DEBUG)
+
+# Enable structured JSON logging with correlation IDs
+# Set ENABLE_JSON_LOGGING=false in environment to disable for development
+enable_json = os.environ.get("ENABLE_JSON_LOGGING", "true").lower() in ("true", "1", "yes")
+if enable_json:
+    from app.structured_logger import setup_structured_logging
+    setup_structured_logging(app, enable_json=True)
 
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
