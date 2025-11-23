@@ -206,7 +206,7 @@ def load_agent_mapping():
 
     if response and response.status_code == 200:
         agents = response.json()
-        # Use external_id (Freshservice ID) not internal database id
+        # Use external_id (PSA provider ID) not internal database id
         # Only include active agents in the dropdown
         AGENT_MAPPING = {agent['external_id']: agent['name'] for agent in agents if agent.get('active', True)}
         app.logger.info(f"Loaded {len(AGENT_MAPPING)} active agents from Codex")
@@ -246,7 +246,7 @@ def filter_tickets_by_view(tickets, view_slug):
 
 
 def filter_tickets_by_agent(tickets, agent_id):
-    """Filter tickets by agent ID (external_id from Freshservice)."""
+    """Filter tickets by agent ID (external_id from PSA system)."""
     if not tickets or not agent_id:
         return tickets
 
