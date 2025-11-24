@@ -21,7 +21,7 @@ load_dotenv('.flaskenv')
 
 # --- Configuration ---
 STATIC_DIR = "static"
-AUTO_REFRESH_INTERVAL_SECONDS = 60  # 1 minute for responsive dashboard
+AUTO_REFRESH_INTERVAL_SECONDS = 180  # 3 minutes to match Codex ticket sync schedule
 
 # Professional Services Group ID (configured per PSA provider)
 PROFESSIONAL_SERVICES_GROUP_ID = 19000234009
@@ -340,7 +340,7 @@ def dashboard_default():
 
 @app.route('/<view_slug>')
 def dashboard_typed(view_slug):
-    """Main dashboard route for a specific view."""
+    """Main dashboard route for a specific view (authenticated)."""
     if view_slug not in SUPPORTED_VIEWS:
         abort(404, description=f"Unsupported view: {view_slug}")
 
@@ -378,6 +378,62 @@ def dashboard_typed(view_slug):
                            current_view_display=current_view_display,
                            supported_views=SUPPORTED_VIEWS,
                            page_title_display=current_view_display,
+                           section1_name=section1_name,
+                           section2_name=section2_name,
+                           section3_name=section3_name,
+                           section4_name=section4_name,
+                           agent_mapping=AGENT_MAPPING,
+                           selected_agent_id=agent_id)
+
+
+@app.route('/display')
+@limiter.exempt
+def display_default():
+    """Public display redirect (no authentication required for TV displays)."""
+    return redirect(f'/display/{DEFAULT_VIEW_SLUG}')
+
+
+@app.route('/display/<view_slug>')
+@limiter.exempt
+def display_public(view_slug):
+    """Public display route for TV screens (no authentication required)."""
+    if view_slug not in SUPPORTED_VIEWS:
+        abort(404, description=f"Unsupported view: {view_slug}")
+
+    agent_id = request.args.get('agent_id', type=int)
+    current_view_display = SUPPORTED_VIEWS[view_slug]
+
+    app.logger.info(f"Loading PUBLIC display for view: {current_view_display} (slug: {view_slug})")
+
+    s1_items, s2_items, s3_items, s4_items, last_sync_time = get_tickets_for_view(view_slug, agent_id=agent_id)
+
+    # Use last_sync_time from Codex if available, otherwise use current time
+    if last_sync_time:
+        dashboard_generated_time_iso = last_sync_time
+    else:
+        generated_time_utc = datetime.datetime.now(datetime.timezone.utc)
+        dashboard_generated_time_iso = generated_time_utc.isoformat()
+
+    section1_name = f"Open {current_view_display} Tickets"
+    section2_name = "Customer Replied"
+    section3_name = "Needs Agent / Update Overdue"
+    section4_name = f"Other Active {current_view_display} Tickets"
+
+    # Get PSA ticket base URL for ticket links
+    ticket_base_url = get_psa_ticket_base_url()
+
+    return render_template(INDEX_TEMPLATE,
+                           s1_items=s1_items,
+                           s2_items=s2_items,
+                           s3_items=s3_items,
+                           s4_items=s4_items,
+                           dashboard_generated_time_iso=dashboard_generated_time_iso,
+                           auto_refresh_ms=AUTO_REFRESH_INTERVAL_SECONDS * 1000,
+                           ticket_base_url=ticket_base_url,
+                           current_view_slug=view_slug,  # Keep original slug for API calls
+                           current_view_display=current_view_display,
+                           supported_views=SUPPORTED_VIEWS,
+                           page_title_display=f"{current_view_display} (TV Display)",
                            section1_name=section1_name,
                            section2_name=section2_name,
                            section3_name=section3_name,
