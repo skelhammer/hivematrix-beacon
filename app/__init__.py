@@ -21,7 +21,7 @@ load_dotenv('.flaskenv')
 
 # --- Configuration ---
 STATIC_DIR = "static"
-AUTO_REFRESH_INTERVAL_SECONDS = 180  # 3 minutes to match Codex ticket sync schedule
+AUTO_REFRESH_INTERVAL_SECONDS = 300  # 5 minutes to match Codex light ticket sync schedule
 
 # Professional Services Group ID (configured per PSA provider)
 PROFESSIONAL_SERVICES_GROUP_ID = 19000234009

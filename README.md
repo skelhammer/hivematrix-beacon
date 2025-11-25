@@ -10,7 +10,7 @@ Beacon provides a visual monitoring tool for support teams to track ticket statu
 
 ## Features
 
-- **Real-Time Updates** - Auto-refreshes every 30 seconds
+- **Real-Time Updates** - Auto-refreshes every 5 minutes
 - **Categorized Views** - Open, customer replied, overdue, other active
 - **Dual Dashboards** - Helpdesk and Professional Services views
 - **SLA Indicators** - Visual status for overdue/critical/warning
