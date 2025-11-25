@@ -1,10 +1,11 @@
 import os
 import json
 import datetime
+import time
 import requests
 import logging
 import sys
-from flask import Flask, render_template, jsonify, abort, redirect, url_for, request, flash
+from flask import Flask, render_template, jsonify, abort, redirect, url_for, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
 from app.rate_limit_key import get_user_id_or_ip
@@ -21,10 +22,18 @@ load_dotenv('.flaskenv')
 
 # --- Configuration ---
 STATIC_DIR = "static"
-AUTO_REFRESH_INTERVAL_SECONDS = 300  # 5 minutes to match Codex light ticket sync schedule
+AUTO_REFRESH_INTERVAL_SECONDS = 60  # 1 minute refresh
 
-# Professional Services Group ID (configured per PSA provider)
-PROFESSIONAL_SERVICES_GROUP_ID = 19000234009
+# Cache TTL settings (in seconds)
+AGENT_MAPPING_TTL_SECONDS = 300  # 5 minutes
+PSA_CONFIG_TTL_SECONDS = 300  # 5 minutes
+
+# PSA Group IDs - loaded from Codex at startup (see load_psa_config)
+# These are vendor-specific and configured in Codex's codex.conf
+PSA_GROUP_IDS = {
+    'professional_services': None,
+    'helpdesk': None,
+}
 
 # --- View Configuration ---
 SUPPORTED_VIEWS = {
@@ -135,47 +144,37 @@ except FileNotFoundError:
 app.config['SERVICE_NAME'] = os.environ.get('SERVICE_NAME', 'beacon')
 app.config['CORE_SERVICE_URL'] = os.environ.get('CORE_SERVICE_URL', 'http://localhost:5000')
 
-if not app.debug:
-    app.logger.setLevel(logging.INFO)
-
-# Enable structured JSON logging with correlation IDs
-# Set ENABLE_JSON_LOGGING=false in environment to disable for development
-enable_json = os.environ.get("ENABLE_JSON_LOGGING", "true").lower() in ("true", "1", "yes")
-if enable_json:
-    from app.structured_logger import setup_structured_logging
-    setup_structured_logging(app, enable_json=True)
-else:
-    app.logger.setLevel(logging.DEBUG)
-
-# Enable structured JSON logging with correlation IDs
-# Set ENABLE_JSON_LOGGING=false in environment to disable for development
-enable_json = os.environ.get("ENABLE_JSON_LOGGING", "true").lower() in ("true", "1", "yes")
-if enable_json:
-    from app.structured_logger import setup_structured_logging
-    setup_structured_logging(app, enable_json=True)
-
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter(
-    '%(asctime)s %(levelname)s: %(message)s '
-    '[in %(pathname)s:%(lineno)d]'
-))
-app.logger.addHandler(handler)
-
-# Agent mapping for display
+# Agent mapping for display with TTL-based caching
 AGENT_MAPPING = {}
+_agent_mapping_last_loaded = 0
 
-# Cache for PSA ticket base URL
+# Cache for PSA config with TTL
 _psa_ticket_base_url = None
+_psa_config_last_loaded = 0
 
 
-def get_psa_ticket_base_url():
-    """Get PSA ticket base URL from Codex configuration."""
-    global _psa_ticket_base_url
+def load_psa_config(force=False):
+    """
+    Load PSA configuration from Codex with TTL-based caching.
 
-    if _psa_ticket_base_url:
-        return _psa_ticket_base_url
+    This loads:
+    - Ticket base URL for linking to PSA tickets
+    - Group IDs for filtering tickets by team (Professional Services vs Helpdesk)
 
-    # Try to get from Codex's PSA config endpoint
+    Args:
+        force: If True, bypass cache and reload from Codex
+
+    Called at startup and periodically refreshed based on PSA_CONFIG_TTL_SECONDS.
+    """
+    global _psa_ticket_base_url, PSA_GROUP_IDS, _psa_config_last_loaded
+
+    now = time.time()
+
+    # Check if cache is still valid (unless forced)
+    if not force and _psa_config_last_loaded > 0:
+        if (now - _psa_config_last_loaded) < PSA_CONFIG_TTL_SECONDS:
+            return True  # Cache still valid
+
     try:
         response = call_service('codex', '/api/psa/config')
         if response and response.status_code == 200:
@@ -184,34 +183,71 @@ def get_psa_ticket_base_url():
             providers = data.get('providers', {})
 
             if default_provider and default_provider in providers:
+                provider_config = providers[default_provider]
+
                 # Get ticket URL template and convert to base URL
-                template = providers[default_provider].get('ticket_url_template', '')
+                template = provider_config.get('ticket_url_template', '')
                 if template:
-                    # Remove the {ticket_id} placeholder to get base URL
                     _psa_ticket_base_url = template.replace('{ticket_id}', '')
-                    return _psa_ticket_base_url
+                    app.logger.debug(f"Loaded PSA ticket base URL: {_psa_ticket_base_url}")
+
+                # Load group IDs for ticket filtering
+                group_ids = provider_config.get('group_ids', {})
+                if group_ids:
+                    PSA_GROUP_IDS['professional_services'] = group_ids.get('professional_services')
+                    PSA_GROUP_IDS['helpdesk'] = group_ids.get('helpdesk')
+                    app.logger.debug(f"Loaded PSA group IDs: PS={PSA_GROUP_IDS['professional_services']}, Helpdesk={PSA_GROUP_IDS['helpdesk']}")
+
+                _psa_config_last_loaded = now
+                return True
+
     except (requests.RequestException, ValueError, KeyError) as e:
         app.logger.error(f"Could not fetch PSA config from Codex: {e}")
 
-    # No PSA configured - return None to indicate failure
-    app.logger.warning("No PSA provider configured - ticket links will not work")
-    return None
+    app.logger.warning("Failed to load PSA config - ticket links and filtering may not work")
+    return False
 
 
-def load_agent_mapping():
-    """Load agent mapping from Codex API."""
-    global AGENT_MAPPING
+def get_psa_ticket_base_url():
+    """Get PSA ticket base URL from cached configuration (refreshes if TTL expired)."""
+    global _psa_ticket_base_url
 
-    response = call_service('codex', '/api/psa/agents')
+    # This will refresh if TTL expired
+    load_psa_config()
 
-    if response and response.status_code == 200:
-        agents = response.json()
-        # Use external_id (PSA provider ID) not internal database id
-        # Only include active agents in the dropdown
-        AGENT_MAPPING = {agent['external_id']: agent['name'] for agent in agents if agent.get('active', True)}
-        app.logger.info(f"Loaded {len(AGENT_MAPPING)} active agents from Codex")
-    else:
-        app.logger.warning("Failed to load agents from Codex")
+    return _psa_ticket_base_url
+
+
+def load_agent_mapping(force=False):
+    """
+    Load agent mapping from Codex API with TTL-based caching.
+
+    Args:
+        force: If True, bypass cache and reload from Codex
+    """
+    global AGENT_MAPPING, _agent_mapping_last_loaded
+
+    now = time.time()
+
+    # Check if cache is still valid (unless forced)
+    if not force and _agent_mapping_last_loaded > 0:
+        if (now - _agent_mapping_last_loaded) < AGENT_MAPPING_TTL_SECONDS:
+            return  # Cache still valid
+
+    try:
+        response = call_service('codex', '/api/psa/agents')
+
+        if response and response.status_code == 200:
+            agents = response.json()
+            # Use external_id (PSA provider ID) not internal database id
+            # Only include active agents in the dropdown
+            AGENT_MAPPING = {agent['external_id']: agent['name'] for agent in agents if agent.get('active', True)}
+            _agent_mapping_last_loaded = now
+            app.logger.debug(f"Loaded {len(AGENT_MAPPING)} active agents from Codex")
+        else:
+            app.logger.warning("Failed to load agents from Codex")
+    except Exception as e:
+        app.logger.error(f"Error loading agent mapping: {e}")
 
 
 def fetch_tickets_from_codex():
@@ -228,14 +264,28 @@ def fetch_tickets_from_codex():
 
 
 def filter_tickets_by_view(tickets, view_slug):
-    """Filter a list of tickets by view (helpdesk vs professional-services)."""
+    """Filter a list of tickets by view (helpdesk vs professional-services).
+
+    Uses PSA_GROUP_IDS loaded from Codex configuration to determine which
+    tickets belong to Professional Services vs Helpdesk.
+    """
     if not tickets:
         return []
+
+    ps_group_id = PSA_GROUP_IDS.get('professional_services')
+
+    # If no PS group ID configured, we can't filter - return all for helpdesk, none for PS
+    if ps_group_id is None:
+        app.logger.warning("Professional Services group ID not configured - filtering disabled")
+        if view_slug == 'helpdesk':
+            return tickets  # Return all if we can't distinguish
+        else:
+            return []  # Can't identify PS tickets without group ID
 
     filtered = []
     for ticket in tickets:
         group_id = ticket.get('group_id')
-        is_prof_services = (group_id == PROFESSIONAL_SERVICES_GROUP_ID)
+        is_prof_services = (group_id == ps_group_id)
 
         if view_slug == 'professional-services' and is_prof_services:
             filtered.append(ticket)
@@ -247,24 +297,36 @@ def filter_tickets_by_view(tickets, view_slug):
 
 def filter_tickets_by_agent(tickets, agent_id):
     """Filter tickets by agent ID (external_id from PSA system)."""
-    if not tickets or not agent_id:
+    if not tickets or agent_id is None:
         return tickets
 
-    # Ensure type consistency - convert both to int for comparison
-    agent_id = int(agent_id)
-    return [t for t in tickets if t.get('responder_id') == agent_id]
+    # Ensure type consistency - safely convert to int for comparison
+    try:
+        agent_id_int = int(agent_id) if not isinstance(agent_id, int) else agent_id
+    except (ValueError, TypeError):
+        app.logger.warning(f"Invalid agent_id for filtering: {agent_id}")
+        return tickets  # Return unfiltered if conversion fails
+
+    return [t for t in tickets if t.get('responder_id') == agent_id_int]
 
 
 def get_tickets_for_view(view_slug, agent_id=None):
-    """Get tickets from Codex filtered by view and optionally by agent."""
-    # Load agent mapping if not loaded
-    if not AGENT_MAPPING:
-        load_agent_mapping()
+    """Get tickets from Codex filtered by view and optionally by agent.
+
+    Returns:
+        tuple: (section1, section2, section3, section4, last_sync_time, error)
+               error is None on success, or an error message string on failure
+    """
+    # Refresh agent mapping if TTL expired
+    load_agent_mapping()
+
+    # Refresh PSA config if TTL expired
+    load_psa_config()
 
     data, last_sync_time = fetch_tickets_from_codex()
 
     if not data:
-        return [], [], [], [], None
+        return [], [], [], [], None, "Unable to fetch tickets from Codex. The service may be unavailable."
 
     # Extract sections from Codex response
     section1 = data.get('section1', [])
@@ -285,7 +347,68 @@ def get_tickets_for_view(view_slug, agent_id=None):
         s3 = filter_tickets_by_agent(s3, agent_id)
         s4 = filter_tickets_by_agent(s4, agent_id)
 
-    return s1, s2, s3, s4, last_sync_time
+    return s1, s2, s3, s4, last_sync_time, None  # No error
+
+
+def _render_dashboard(view_slug, agent_id, is_public=False):
+    """
+    Common dashboard rendering logic for both authenticated and public views.
+
+    Args:
+        view_slug: The view to render (helpdesk, professional-services)
+        agent_id: Optional agent ID to filter by
+        is_public: If True, this is a TV display (no auth required)
+
+    Returns:
+        Rendered template response
+    """
+    current_view_display = SUPPORTED_VIEWS[view_slug]
+
+    log_prefix = "PUBLIC display" if is_public else "dashboard"
+    app.logger.info(f"Loading {log_prefix} for view: {current_view_display} (slug: {view_slug})")
+
+    s1_items, s2_items, s3_items, s4_items, last_sync_time, error = get_tickets_for_view(view_slug, agent_id=agent_id)
+
+    # Use last_sync_time from Codex if available, otherwise use current time
+    if last_sync_time:
+        dashboard_generated_time_iso = last_sync_time
+    else:
+        generated_time_utc = datetime.datetime.now(datetime.timezone.utc)
+        dashboard_generated_time_iso = generated_time_utc.isoformat()
+
+    section1_name = f"Open {current_view_display} Tickets"
+    section2_name = "Customer Replied"
+    section3_name = "Needs Agent / Update Overdue"
+    section4_name = f"Other Active {current_view_display} Tickets"
+
+    # Get PSA ticket base URL for ticket links
+    ticket_base_url = get_psa_ticket_base_url() or ""
+
+    # Page title differs for public displays
+    if is_public:
+        page_title = f"{current_view_display} (TV Display)"
+    else:
+        page_title = current_view_display
+
+    return render_template(INDEX_TEMPLATE,
+                           s1_items=s1_items,
+                           s2_items=s2_items,
+                           s3_items=s3_items,
+                           s4_items=s4_items,
+                           dashboard_generated_time_iso=dashboard_generated_time_iso,
+                           auto_refresh_ms=AUTO_REFRESH_INTERVAL_SECONDS * 1000,
+                           ticket_base_url=ticket_base_url,
+                           current_view_slug=view_slug,
+                           current_view_display=current_view_display,
+                           supported_views=SUPPORTED_VIEWS,
+                           page_title_display=page_title,
+                           section1_name=section1_name,
+                           section2_name=section2_name,
+                           section3_name=section3_name,
+                           section4_name=section4_name,
+                           agent_mapping=AGENT_MAPPING,
+                           selected_agent_id=agent_id,
+                           error_message=error)
 
 
 # Configure OpenAPI/Swagger documentation
@@ -345,45 +468,7 @@ def dashboard_typed(view_slug):
         abort(404, description=f"Unsupported view: {view_slug}")
 
     agent_id = request.args.get('agent_id', type=int)
-    current_view_display = SUPPORTED_VIEWS[view_slug]
-
-    app.logger.info(f"Loading dashboard for view: {current_view_display} (slug: {view_slug})")
-
-    s1_items, s2_items, s3_items, s4_items, last_sync_time = get_tickets_for_view(view_slug, agent_id=agent_id)
-
-    # Use last_sync_time from Codex if available, otherwise use current time
-    if last_sync_time:
-        dashboard_generated_time_iso = last_sync_time
-    else:
-        generated_time_utc = datetime.datetime.now(datetime.timezone.utc)
-        dashboard_generated_time_iso = generated_time_utc.isoformat()
-
-    section1_name = f"Open {current_view_display} Tickets"
-    section2_name = "Customer Replied"
-    section3_name = "Needs Agent / Update Overdue"
-    section4_name = f"Other Active {current_view_display} Tickets"
-
-    # Get PSA ticket base URL for ticket links
-    ticket_base_url = get_psa_ticket_base_url()
-
-    return render_template(INDEX_TEMPLATE,
-                           s1_items=s1_items,
-                           s2_items=s2_items,
-                           s3_items=s3_items,
-                           s4_items=s4_items,
-                           dashboard_generated_time_iso=dashboard_generated_time_iso,
-                           auto_refresh_ms=AUTO_REFRESH_INTERVAL_SECONDS * 1000,
-                           ticket_base_url=ticket_base_url,
-                           current_view_slug=view_slug,
-                           current_view_display=current_view_display,
-                           supported_views=SUPPORTED_VIEWS,
-                           page_title_display=current_view_display,
-                           section1_name=section1_name,
-                           section2_name=section2_name,
-                           section3_name=section3_name,
-                           section4_name=section4_name,
-                           agent_mapping=AGENT_MAPPING,
-                           selected_agent_id=agent_id)
+    return _render_dashboard(view_slug, agent_id, is_public=False)
 
 
 @app.route('/display')
@@ -401,48 +486,11 @@ def display_public(view_slug):
         abort(404, description=f"Unsupported view: {view_slug}")
 
     agent_id = request.args.get('agent_id', type=int)
-    current_view_display = SUPPORTED_VIEWS[view_slug]
-
-    app.logger.info(f"Loading PUBLIC display for view: {current_view_display} (slug: {view_slug})")
-
-    s1_items, s2_items, s3_items, s4_items, last_sync_time = get_tickets_for_view(view_slug, agent_id=agent_id)
-
-    # Use last_sync_time from Codex if available, otherwise use current time
-    if last_sync_time:
-        dashboard_generated_time_iso = last_sync_time
-    else:
-        generated_time_utc = datetime.datetime.now(datetime.timezone.utc)
-        dashboard_generated_time_iso = generated_time_utc.isoformat()
-
-    section1_name = f"Open {current_view_display} Tickets"
-    section2_name = "Customer Replied"
-    section3_name = "Needs Agent / Update Overdue"
-    section4_name = f"Other Active {current_view_display} Tickets"
-
-    # Get PSA ticket base URL for ticket links
-    ticket_base_url = get_psa_ticket_base_url()
-
-    return render_template(INDEX_TEMPLATE,
-                           s1_items=s1_items,
-                           s2_items=s2_items,
-                           s3_items=s3_items,
-                           s4_items=s4_items,
-                           dashboard_generated_time_iso=dashboard_generated_time_iso,
-                           auto_refresh_ms=AUTO_REFRESH_INTERVAL_SECONDS * 1000,
-                           ticket_base_url=ticket_base_url,
-                           current_view_slug=view_slug,  # Keep original slug for API calls
-                           current_view_display=current_view_display,
-                           supported_views=SUPPORTED_VIEWS,
-                           page_title_display=f"{current_view_display} (TV Display)",
-                           section1_name=section1_name,
-                           section2_name=section2_name,
-                           section3_name=section3_name,
-                           section4_name=section4_name,
-                           agent_mapping=AGENT_MAPPING,
-                           selected_agent_id=agent_id)
+    return _render_dashboard(view_slug, agent_id, is_public=True)
 
 
 @app.route('/api/tickets/<view_slug>')
+@limiter.limit("60 per minute")
 def api_tickets(view_slug):
     """API endpoint for ticket data."""
     if view_slug not in SUPPORTED_VIEWS:
@@ -453,7 +501,7 @@ def api_tickets(view_slug):
 
     app.logger.debug(f"API: /api/tickets/{view_slug} called")
 
-    s1_items, s2_items, s3_items, s4_items, last_sync_time = get_tickets_for_view(view_slug, agent_id=agent_id)
+    s1_items, s2_items, s3_items, s4_items, last_sync_time, error = get_tickets_for_view(view_slug, agent_id=agent_id)
 
     # Use last_sync_time from Codex if available, otherwise use current time
     if last_sync_time:
@@ -472,11 +520,79 @@ def api_tickets(view_slug):
         'section1_name_js': f"Open {current_view_display} Tickets",
         'section2_name_js': "Customer Replied",
         'section3_name_js': "Needs Agent / Update Overdue",
-        'section4_name_js': f"Other Active {current_view_display} Tickets"
+        'section4_name_js': f"Other Active {current_view_display} Tickets",
+        'error': error
     }
 
     app.logger.debug(f"API: Returning {response_data['total_active_items']} total items")
     return jsonify(response_data)
+
+
+# ====================  Sync Endpoints ====================
+
+@app.route('/api/sync/tickets', methods=['POST'])
+@limiter.limit("5 per minute")
+def api_sync_tickets():
+    """
+    Trigger a Tier 2 (detail) ticket sync via Codex.
+
+    This is for on-demand sync when users want fresh ticket data.
+    Rate limited to prevent abuse.
+
+    Returns:
+        JSON: Success status and job_id for tracking
+    """
+    try:
+        response = call_service('codex', '/sync/tickets', method='POST')
+
+        if response and response.status_code == 200:
+            data = response.json()
+            return jsonify(data)
+        elif response and response.status_code == 403:
+            return jsonify({
+                'success': False,
+                'error': 'Permission denied. Technician or admin access required.'
+            }), 403
+        else:
+            app.logger.error(f"Failed to trigger ticket sync: {response.status_code if response else 'No response'}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to start ticket sync'
+            }), 500
+
+    except Exception as e:
+        app.logger.error(f"Error triggering ticket sync: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error'
+        }), 500
+
+
+@app.route('/api/sync/status/<job_id>', methods=['GET'])
+@limiter.limit("30 per minute")
+def api_sync_status(job_id):
+    """
+    Check the status of a sync job via Codex.
+
+    Args:
+        job_id: The sync job ID returned from /api/sync/tickets
+
+    Returns:
+        JSON: Job status (running, completed, failed) and progress info
+    """
+    try:
+        response = call_service('codex', f'/sync/status/{job_id}')
+
+        if response and response.status_code == 200:
+            return jsonify(response.json())
+        elif response and response.status_code == 404:
+            return jsonify({'error': 'Job not found'}), 404
+        else:
+            return jsonify({'error': 'Failed to get sync status'}), 500
+
+    except Exception as e:
+        app.logger.error(f"Error checking sync status: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 # ====================  Health Check ====================
@@ -521,7 +637,8 @@ if __name__ == '__main__':
                 app.logger.error(f"Failed to create directory {abs_dir_path}: {e}")
                 exit(f"Error: Could not create essential directory {abs_dir_path}. Exiting.")
 
-    # Load agent mapping from Codex
+    # Load PSA configuration (ticket URLs, group IDs) and agent mapping from Codex
+    load_psa_config()
     load_agent_mapping()
 
     app.logger.info(f"Starting Beacon - Ticket Dashboard")

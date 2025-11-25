@@ -12,6 +12,15 @@
     </div>
 </div>
 
+{% if error_message %}
+<div class="alert alert--error u-mb-3" id="error-banner">
+    <strong>Error:</strong> {{ error_message }}
+</div>
+{% endif %}
+<div id="api-error-banner" class="alert alert--error u-mb-3" style="display: none;">
+    <strong>Error:</strong> <span id="api-error-message"></span>
+</div>
+
 <div class="card u-mb-3">
     <div class="card__header">
         <div class="btn-group">
@@ -41,14 +50,21 @@
         </div>
     </div>
     <div class="card__body">
-        <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
-            <label for="agent-filter" class="form-group__label" style="margin-bottom: 0;">Filter by Agent:</label>
-            <select id="agent-filter" class="form-group__select" style="flex: 1; max-width: 200px;">
-                <option value="">All Agents</option>
-                {% for agent_id, agent_name in agent_mapping.items() %}
-                    <option value="{{ agent_id }}" {% if agent_id == selected_agent_id %}selected{% endif %}>{{ agent_name }}</option>
-                {% endfor %}
-            </select>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+            <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;">
+                <label for="agent-filter" class="form-group__label" style="margin-bottom: 0;">Filter by Agent:</label>
+                <select id="agent-filter" class="form-group__select" style="flex: 1; max-width: 200px;">
+                    <option value="">All Agents</option>
+                    {% for agent_id, agent_name in agent_mapping.items() %}
+                        <option value="{{ agent_id }}" {% if agent_id == selected_agent_id %}selected{% endif %}>{{ agent_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <button id="refresh-btn" class="btn btn--sm btn--outline" title="Refresh ticket data">Refresh</button>
+                <button id="sync-tickets-btn" class="btn btn--sm btn--primary" title="Sync latest tickets from PSA (Tier 2)">Sync Tickets</button>
+                <span id="sync-status" class="u-text-small u-text-secondary"></span>
+            </div>
         </div>
     </div>
 </div>

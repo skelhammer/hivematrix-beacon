@@ -112,19 +112,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tableBody || !noItemsMessageElement || !sectionItemCountElement) return;
 
         sectionItemCountElement.textContent = items.length;
-        tableBody.innerHTML = '';
 
         if (items && items.length > 0) {
-            items.forEach(item => {
-                tableBody.innerHTML += renderItemRow(item, sectionIdPrefix);
-            });
+            // Build all HTML first, then set once (more efficient than += in loop)
+            const html = items.map(item => renderItemRow(item, sectionIdPrefix)).join('');
+            tableBody.innerHTML = html;
             noItemsMessageElement.style.display = 'none';
         } else {
+            tableBody.innerHTML = '';
             noItemsMessageElement.style.display = 'block';
         }
     }
 
     async function refreshTicketData() {
+        const apiErrorBanner = document.getElementById('api-error-banner');
+        const apiErrorMessage = document.getElementById('api-error-message');
+
         try {
             // Get base path from current location (e.g., /beacon)
             const pathParts = window.location.pathname.split('/');
@@ -138,9 +141,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(url, { credentials: 'same-origin' });
             if (!response.ok) {
                 console.error(`Failed to fetch data:`, response.status);
+                if (apiErrorBanner && apiErrorMessage) {
+                    apiErrorMessage.textContent = `Failed to fetch ticket data (HTTP ${response.status})`;
+                    apiErrorBanner.style.display = 'block';
+                }
                 return;
             }
             const data = await response.json();
+
+            // Handle API-level errors
+            if (data.error) {
+                if (apiErrorBanner && apiErrorMessage) {
+                    apiErrorMessage.textContent = data.error;
+                    apiErrorBanner.style.display = 'block';
+                }
+            } else {
+                // Hide error banner if no error
+                if (apiErrorBanner) {
+                    apiErrorBanner.style.display = 'none';
+                }
+            }
             window.currentApiData = data;
 
             const totalActiveItems = data.total_active_items;
@@ -196,6 +216,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error(`Error refreshing data:`, error);
+            if (apiErrorBanner && apiErrorMessage) {
+                apiErrorMessage.textContent = 'Network error: Unable to connect to server';
+                apiErrorBanner.style.display = 'block';
+            }
         }
     }
 
@@ -342,5 +366,100 @@ document.addEventListener('DOMContentLoaded', () => {
         setInterval(refreshTicketData, AUTO_REFRESH_INTERVAL_MS);
     } else {
         setTimeout(refreshTicketData, 100);
+    }
+
+    // --- Manual Refresh Button ---
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', async () => {
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Refreshing...';
+
+            await refreshTicketData();
+
+            refreshBtn.textContent = 'Refresh';
+            refreshBtn.disabled = false;
+        });
+    }
+
+    // --- Sync Tickets Button (Tier 2 Detail Sync) ---
+    const syncBtn = document.getElementById('sync-tickets-btn');
+    const syncStatus = document.getElementById('sync-status');
+
+    if (syncBtn) {
+        syncBtn.addEventListener('click', async () => {
+            syncBtn.disabled = true;
+            syncBtn.textContent = 'Syncing...';
+            if (syncStatus) syncStatus.textContent = 'Starting sync...';
+
+            try {
+                // Get base path from current location (e.g., /beacon)
+                const pathParts = window.location.pathname.split('/');
+                const basePath = pathParts[1] ? `/${pathParts[1]}` : '';
+
+                const response = await fetch(`${basePath}/api/sync/tickets`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.job_id) {
+                    if (syncStatus) syncStatus.textContent = 'Sync in progress...';
+
+                    // Poll for status
+                    const pollStatus = async () => {
+                        try {
+                            const statusResponse = await fetch(`${basePath}/api/sync/status/${data.job_id}`, {
+                                credentials: 'same-origin'
+                            });
+                            const statusData = await statusResponse.json();
+
+                            if (statusData.status === 'completed') {
+                                if (syncStatus) syncStatus.textContent = 'Sync complete!';
+                                syncBtn.textContent = 'Sync Tickets';
+                                syncBtn.disabled = false;
+
+                                // Refresh ticket data after sync
+                                await refreshTicketData();
+
+                                // Clear status after a few seconds
+                                setTimeout(() => {
+                                    if (syncStatus) syncStatus.textContent = '';
+                                }, 3000);
+                            } else if (statusData.status === 'failed') {
+                                if (syncStatus) syncStatus.textContent = 'Sync failed: ' + (statusData.error || 'Unknown error');
+                                syncBtn.textContent = 'Sync Tickets';
+                                syncBtn.disabled = false;
+                            } else {
+                                // Still running, show progress if available
+                                if (syncStatus && statusData.progress) {
+                                    syncStatus.textContent = `Syncing: ${statusData.progress}`;
+                                }
+                                // Poll again in 2 seconds
+                                setTimeout(pollStatus, 2000);
+                            }
+                        } catch (error) {
+                            console.error('Error checking sync status:', error);
+                            if (syncStatus) syncStatus.textContent = 'Error checking status';
+                            syncBtn.textContent = 'Sync Tickets';
+                            syncBtn.disabled = false;
+                        }
+                    };
+
+                    // Start polling after a short delay
+                    setTimeout(pollStatus, 1000);
+                } else {
+                    if (syncStatus) syncStatus.textContent = data.error || 'Failed to start sync';
+                    syncBtn.textContent = 'Sync Tickets';
+                    syncBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error triggering sync:', error);
+                if (syncStatus) syncStatus.textContent = 'Network error';
+                syncBtn.textContent = 'Sync Tickets';
+                syncBtn.disabled = false;
+            }
+        });
     }
 });
