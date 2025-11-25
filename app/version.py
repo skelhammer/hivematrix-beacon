@@ -1,6 +1,7 @@
 """
 Version utility for HiveMatrix Beacon.
 Reads git information to generate version string.
+Falls back to VERSION file if git is unavailable.
 """
 
 import subprocess
@@ -11,26 +12,55 @@ def get_version():
     """
     Get version string in format: YYYY.MM.DD-<short_hash>
     Example: 2024.11.19-c7f7c81
-    """
-    try:
-        # Get the directory where this script is located
-        script_dir = os.path.dirname(os.path.abspath(__file__))
 
+    Tries git first, falls back to VERSION file if git fails.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_dir = os.path.dirname(script_dir)  # Go up to repo root
+    version_file = os.path.join(repo_dir, 'VERSION')
+
+    # Try git first
+    version = _get_version_from_git(repo_dir)
+
+    if version and version != 'unknown':
+        # Write to VERSION file for fallback
+        try:
+            with open(version_file, 'w') as f:
+                f.write(version)
+        except Exception:
+            pass  # Ignore write errors (read-only filesystem, etc.)
+        return version
+
+    # Fallback: read from VERSION file
+    if os.path.exists(version_file):
+        try:
+            with open(version_file, 'r') as f:
+                return f.read().strip()
+        except Exception:
+            pass
+
+    return "unknown"
+
+def _get_version_from_git(repo_dir):
+    """Try to get version from git."""
+    try:
         # Get short git commit hash
         result = subprocess.run(
             ['git', 'rev-parse', '--short', 'HEAD'],
             capture_output=True,
             text=True,
-            cwd=script_dir
+            cwd=repo_dir
         )
-        commit_hash = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        if result.returncode != 0:
+            return None
+        commit_hash = result.stdout.strip()
 
         # Get commit date
         result = subprocess.run(
             ['git', 'log', '-1', '--format=%ci'],
             capture_output=True,
             text=True,
-            cwd=script_dir
+            cwd=repo_dir
         )
 
         if result.returncode == 0:
@@ -44,7 +74,7 @@ def get_version():
         return f"{date_formatted}-{commit_hash}"
 
     except Exception:
-        return "unknown"
+        return None
 
 def get_service_name():
     """Get the service name for display."""
